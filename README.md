@@ -1,2 +1,2 @@
-# granger
-Genomic sequence Rearranger
+# saber
+Sequence Alignment using Block Edits and Rearrangements
