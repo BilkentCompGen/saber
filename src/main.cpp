@@ -4,8 +4,8 @@
 
 #define DEFAULT_L_MIN 8
 #define DEFAULT_L_MAX 15
-#define DEFAULT_MAX_ITERATIONS 1
-#define DEFAULT_ERROR_RATE 0.1
+#define DEFAULT_MAX_ITERATIONS 3
+#define DEFAULT_ERROR_RATE 0.3
 
 #define VERSION "1.1"
 #define MAXLINE 32
@@ -57,7 +57,7 @@ void print_block_matches(std::vector<struct block_match> &matches, seqan::DnaStr
         
         if (matches[i].remove) {
             fprintf(out, "Block remove S[%d, %d)\n", i1, j1);            
-            fprintf(out, "\t%s", to_string(b1).c_str());
+            fprintf(out, "\t%s\n", to_string(b1).c_str());
         } else {
             dna_block b2(seq2, i2, j2);        
 
@@ -89,7 +89,7 @@ void help() {
     printf("%-12s  %-9s  %-9s  %-8s  %s\n", "iterations", "(-i)", "no", "Integer", "Specify the maximum number of iterations (Default: 1)");
     printf("%-12s  %-9s  %-9s  %-8s  %s\n", "l-min", "(-l)", "no", "Integer", "Specify the minimum block length (Default: 8)");
     printf("%-12s  %-9s  %-9s  %-8s  %s\n", "l-max", "(-m)", "no", "Integer", "Specify the maximum block length (Default: 15)");
-    printf("%-12s  %-9s  %-9s  %-8s  %s\n", "error", "(-e)", "no", "Float", "Specify the error rate (Default: 0.1)");
+    printf("%-12s  %-9s  %-9s  %-8s  %s\n", "error", "(-e)", "no", "Float", "Specify the error rate (Default: 0.3)");
     printf("%-12s  %-9s  %-9s  %-8s  %s\n", "runtime", "(-r)", "no", "Flag", "Display time taken during the computation");
 }
 
