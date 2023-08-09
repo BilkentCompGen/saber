@@ -124,11 +124,11 @@ int mutate_seq(std::string &mutated_seq, std::string seq, double reverse_rate, d
     for (int i = 0; i < (int) out_char.size(); i++) {
         for (int j = 0; j < max_blocks; j++) {
             if (v[j].first == i) {
-                //std::cout << "\nm: ";
+                std::cout << "\nm: ";
                 if (!v[j].second) {
                     for (int k = blocks[j].first; k <= blocks[j].second; k++) {
                         new_seq.push_back(seq[k]);
-                        //std::cout << seq[k];
+                        std::cout << seq[k];
                     }
 
                 } else {
@@ -137,15 +137,15 @@ int mutate_seq(std::string &mutated_seq, std::string seq, double reverse_rate, d
                     }
 
                 }
-                //std::cout << std::endl;
+                std::cout << std::endl;
             }
         }
         new_seq.push_back(out_char[i]);
-        //std::cout << out_char[i];
+        std::cout << out_char[i];
     }
-//    std::cout << "\n" << std::endl;
-//    std::cout << "seq:\t\t" << seq << std::endl;
-//    std::cout << "new_seq:\t" << new_seq << std::endl;
+    std::cout << "\n" << std::endl;
+    std::cout << "seq:\t\t" << seq << std::endl;
+    std::cout << "new_seq:\t" << new_seq << std::endl;
 
     mutated_seq = "";
     int n = new_seq.size();
