@@ -42,19 +42,19 @@ $ ./saber --help
 
 # Rearrangement Simulator
 
-This is the source code for the testing of _SABER_ over different intensity rates. After creating the _rearrangement\_sim_ executable using _make sim_ command, run the tests by:
+This is the source code for the testing of _SABER_ over different intensity rates. After creating the _rearrangement\_sim_ executable using _make sim_ command, run the tests by:   
 
 ```
 $ ./rearrangement_sim sequence.fa no-samples m-min m-max l-min l-max move-remove-rate max-iterations error-rate step-interval
-```
+```   
 
-This testing code only accepts FASTA files. The following code is:
+This testing code only accepts FASTA files. The following code is:   
 
-***no-samples***        : Number of samples generated and tested for each intensity
-***m-min and m-max***   : Size range of each generated sample
-***l-min and l-max***   : Size range of the blocks in the block operations
-***move-remove-rate***  : Ratio of block move operations to remove operations in the simulation
-***max-iterations***    : Maximum number of iterations to test _saber_ with.
-***error-rate***        : Error rate for character edits.
-***step-interval***     : Step interval for intensity testing (the intensity starts from 10, increases by _step-interval_ each step)
+***no-samples***        : Number of samples generated and tested for each intensity   
+***m-min and m-max***   : Size range of each generated sample   
+***l-min and l-max***   : Size range of the blocks in the block operations   
+***move-remove-rate***  : Ratio of block move operations to remove operations in the simulation   
+***max-iterations***    : Maximum number of iterations to test _saber_ with.   
+***error-rate***        : Error rate for character edits.   
+***step-interval***     : Step interval for intensity testing (the intensity starts from 10, increases by _step-interval_ each step)   
 
