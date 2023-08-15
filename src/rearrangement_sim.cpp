@@ -178,14 +178,19 @@ int mutate_seq(std::string &mutated_seq, std::string seq, double reverse_rate, d
 }
 
 /*
-./rearrangement_sim filename no_samples m_min m_max l_min l_max move_remove_rate max_iterations
+./rearrangement_sim filename no_samples m_min m_max l_min l_max move_remove_rate max_iterations char_error_rate step_interval
 
 Example call:
-./rearrangement_sim viral.fna 10 100 150 15 30 3 3 
-
+./rearrangement_sim viral.fna 10 100 150 15 30 3 5 10 3
 */
 int main(int argc, char *argv[]) { 
-    
+
+    if (argc != 11) {
+        printf("Wrong number of arguments.\n");
+        printf("Please run the rearrangement simulator by ./rearrangement_sim filename no_samples m_min m_max l_min l_max move_remove_rate max_iterations error_rate step_interval\n");
+        return 0;
+    }
+
     timeval start, end;
     gettimeofday(&start, NULL);
 

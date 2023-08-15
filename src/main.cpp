@@ -33,13 +33,13 @@ void print_S(std::vector<std::vector<std::tuple<int, int, bool>> > &S) {
     }
     std::cout << std::endl;
 }
-
+*/
 void print_N(std::vector<int> &N) {
     for (std::size_t i = 0; i < N.size(); i++) {
             std::cout << "N[" << i << "] = " << N[i] << std::endl;
     }
 }
-*/
+
 void print_block_matches(std::vector<struct block_match> &matches, seqan::DnaString &seq1, seqan::DnaString &seq2, FILE *out) {
     fprintf(out, "\n");
     for (std::size_t i = 0; i < matches.size(); i++) {
@@ -267,7 +267,7 @@ int main(int argc, char ** argv) {
 
     seqan::DnaString seq1, seq2;
 
-    seq1 = seqs1[0];
+    seq1 = seqs1[0];    
 
     seqan::StringSet<seqan::CharString> ids2;
     seqan::StringSet<seqan::DnaString> seqs2;
@@ -303,6 +303,8 @@ int main(int argc, char ** argv) {
 
     
     calculate_N(N, W, S, seq1, seq2, max_iterations, min_block, max_block);
+
+    print_N(N);
     
     if (report_time) {
         gettimeofday(&t2, NULL);
