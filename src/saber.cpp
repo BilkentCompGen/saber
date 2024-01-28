@@ -1,13 +1,20 @@
 #include "bed.h"   
-#include <ctime> 
+#include "utils.h"
+#include "constants.h"
+
+#include <chrono>
 #include <getopt.h>
+#include <iostream>
+#include <string>
+#include <cstring>
+
 
 #define DEFAULT_L_MIN 8
 #define DEFAULT_L_MAX 15
 #define DEFAULT_MAX_ITERATIONS 3
 #define DEFAULT_ERROR_RATE 0.3
 
-#define VERSION "1.1"
+#define VERSION "1.2"
 #define MAXLINE 32
 
 /*
@@ -33,18 +40,16 @@ void print_S(std::vector<std::vector<std::tuple<int, int, bool>> > &S) {
     }
     std::cout << std::endl;
 }
-*/
+
 void print_N(std::vector<int> &N) {
     for (std::size_t i = 0; i < N.size(); i++) {
             std::cout << "N[" << i << "] = " << N[i] << std::endl;
     }
 }
-
-void print_block_matches(std::vector<struct block_match> &matches, seqan::DnaString &seq1, seqan::DnaString &seq2, FILE *out) {
+*/
+void print_block_matches(std::vector<struct block_match> &matches, dna_sequence &seq1, dna_sequence &seq2, FILE *out) {
     fprintf(out, "\n");
     for (std::size_t i = 0; i < matches.size(); i++) {
-        //std::cout << vector[i].size() << std::endl;
-        
         int i1, j1, i2, j2, reversed, distance;
         i1 = matches[i].loc1.first;
         j1 = matches[i].loc1.second;
@@ -53,21 +58,21 @@ void print_block_matches(std::vector<struct block_match> &matches, seqan::DnaStr
         reversed = matches[i].reversed; 
         distance = matches[i].dist;
 
-        dna_block b1(seq1, i1, j1);
+        dna_block b1(&seq1, i1, j1);
         
         if (matches[i].remove) {
             fprintf(out, "Block remove S[%d, %d)\n", i1, j1);            
-            fprintf(out, "\t%s\n", to_string(b1).c_str());
+            fprintf(out, "\t%s\n", b1.c_str());
         } else {
-            dna_block b2(seq2, i2, j2);        
+            dna_block b2(&seq2, i2, j2);        
 
             fprintf(out, "Block move S[%d, %d) to T[%d, %d). distance: %d", i1, j1, i2, j2, distance - 1);
             if (reversed)
                 fprintf(out, " (reversed)");
             
             fprintf(out, "\n");
-            fprintf(out, "\t%s\n", to_string(b1).c_str());
-            fprintf(out, "\t%s\n", to_string(b2).c_str());
+            fprintf(out, "\t%s\n", b1.c_str());
+            fprintf(out, "\t%s\n", b2.c_str());
         }
         fprintf(out, "\n"); 
     }
@@ -257,26 +262,17 @@ int main(int argc, char ** argv) {
     fprintf(out, "l-min = %d, l-max = %d, max-iterations = %d, error-rate = %.2f\n", min_block, max_block, max_iterations, error_rate);
 
     // Read fasta or fastq files to get two sequences
+    dna_sequence seq1, seq2;
 
-    seqan::StringSet<seqan::CharString> ids1;
-    seqan::StringSet<seqan::DnaString> seqs1;
-    seqan::StringSet<seqan::CharString> quals1;
-    
-    seqan::SeqFileIn seqFileIn1(s);
-    readRecords(ids1, seqs1, quals1, seqFileIn1);
+    if (!read_sequence(s, seq1)) {
+        std::cerr << "Failed to read the first sequence from file " << s << std::endl;
+        return 1;
+    }
 
-    seqan::DnaString seq1, seq2;
-
-    seq1 = seqs1[0];    
-
-    seqan::StringSet<seqan::CharString> ids2;
-    seqan::StringSet<seqan::DnaString> seqs2;
-    seqan::StringSet<seqan::CharString> quals2;
-    
-    seqan::SeqFileIn seqFileIn2(t);
-    readRecords(ids2, seqs2, quals2, seqFileIn2);
-
-    seq2 = seqs2[0];
+    if (!read_sequence(t, seq2)) {
+        std::cerr << "Failed to read the first sequence from file " << t << std::endl;
+        return 1;
+    }
  
     std::vector<std::vector<int>> W;
     std::vector<std::vector<std::tuple<int,int,bool>> > S;
@@ -284,33 +280,34 @@ int main(int argc, char ** argv) {
     std::vector<struct block_match> block_matches;
     std::string new_seq1, new_seq2;
 
-    timeval t1, t2;
+    std::chrono::time_point<std::chrono::high_resolution_clock> t1, t2;
     double total_elapsed = 0;
-    double elapsed;
 
     if (report_time)
-        gettimeofday(&t1, NULL);
-    
+        t1 = std::chrono::high_resolution_clock::now();
+
     calculate_W(W, S, seq1, seq2, min_block, max_block, error_rate);    
     if (report_time) {
-        gettimeofday(&t2, NULL);
-        elapsed = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0; // seconds
-        total_elapsed += elapsed;
+        t2 = std::chrono::high_resolution_clock::now();
 
-        fprintf(out, "\nW computed in %.2f seconds.\n", elapsed);
-        gettimeofday(&t1, NULL);
+        std::chrono::duration<double> elapsed = t2 - t1;
+        total_elapsed += elapsed.count();
+
+        fprintf(out, "\nW computed in %.2f seconds.\n", elapsed.count());
+
+        t1 = std::chrono::high_resolution_clock::now();
     }
 
     
     calculate_N(N, W, S, seq1, seq2, max_iterations, min_block, max_block);
 
-    print_N(N);
+    //print_N(N);
     
     if (report_time) {
-        gettimeofday(&t2, NULL);
-        elapsed = (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000000.0; // seconds
-        total_elapsed += elapsed;
-        fprintf(out, "N computed in %.2f seconds.\n", elapsed);
+        t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = t2 - t1;
+        total_elapsed += elapsed.count();
+        fprintf(out, "N computed in %.2f seconds.\n", elapsed.count());
     }
 
     fprintf(out, "\n");
