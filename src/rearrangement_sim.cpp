@@ -19,8 +19,6 @@ int mutate_seq(dna_sequence &mutated_seq, dna_sequence seq, double reverse_rate,
     int l_range = l_max - l_min + 1;
     int m = seq.length();
 
-    std::srand(std::time(nullptr));
-
     int max_blocks = max_removes + max_moves;
     if (max_blocks == 0) {
         mutated_seq = seq;
@@ -71,8 +69,8 @@ int mutate_seq(dna_sequence &mutated_seq, dna_sequence seq, double reverse_rate,
 
     std::random_shuffle(v.begin(), v.end());
 
-    std::string new_seq = "";
-    std::vector<struct block_match> block_matches;
+    dna_sequence new_seq = "";
+    std::vector<block_match> block_matches;
     for (int i = 0; i < (int) out_char.size(); i++) {
         for (int j = 0; j < max_blocks; j++) {
             if (v[j].first == i) {
@@ -156,6 +154,10 @@ int main(int argc, char *argv[]) {
     int max_iterations = atoi(argv[8]);
 
     double char_error_rate = atoi(argv[9]) / 100.0;
+
+
+    alignment_setting settings(l_min, l_max, max_iterations, 2 * char_error_rate);
+
     int intensity_test = atoi(argv[10]);
 
     double reverse_rate = 0.15;
@@ -164,8 +166,8 @@ int main(int argc, char *argv[]) {
     
     printf("Running %d simulations on sequence length range: (%d, %d); and block length range: (%d, %d)\n", samples * (90 / intensity_test), m_min, m_max, l_min, l_max);
 
-    std::string s1;
-    std::string s;
+    dna_sequence s1;
+    dna_sequence s;
     std::ifstream f;
     f.open(filename);
     std::getline(f, s1);
@@ -190,8 +192,8 @@ int main(int argc, char *argv[]) {
             int m = m_min + (std::rand() % m_range);
             int start = std::rand() % (len - m);
             
-            std::string seq = s.substr(start, m);
-            std::string mutated_seq;
+            dna_sequence seq = s.substr(start, m);
+            dna_sequence mutated_seq;
 
 
             int max_block;
@@ -202,13 +204,13 @@ int main(int argc, char *argv[]) {
             int moves = max_block - removes;
 
             int simulated_bed = mutate_seq(mutated_seq, seq, reverse_rate, char_error_rate, l_min, l_max, removes, moves);
-            std::vector<struct block_match> block_matches;
+            std::vector<block_match> block_matches;
             int n = mutated_seq.size();
             printf("m = %d, n = %d.", m, n);
             fflush(stdout);
 
             auto t1 = std::chrono::high_resolution_clock::now();
-            int calculated_bed = bed(block_matches, seq, mutated_seq, max_iterations, l_min, l_max, 2 * char_error_rate);
+            int calculated_bed = bed(block_matches, seq, mutated_seq, max_iterations, settings);
             int calculated_blocks = block_matches.size(); 
             auto t2 = std::chrono::high_resolution_clock::now();
             

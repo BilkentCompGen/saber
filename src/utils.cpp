@@ -1,4 +1,5 @@
 #include "utils.h"
+
 #include <stdexcept>
 #include <fstream>
 #include <map>
@@ -27,28 +28,28 @@ char random_base_generator::generate() {
 }
 
 char base_mutator::mutate(char c) {
+    if (base_lookup_rev.find(c) == base_lookup_rev.end())
+        throw std::invalid_argument("Invalid nucleotide");
+
     return base_lookup[(base_lookup_rev.at(c) + dis(gen)) % 4];
 }
 
 char complement(char c) {
-    if (complement_lookup.find((unsigned char)c) == complement_lookup.end()) {
+    if (complement_lookup.find(c) == complement_lookup.end())
         throw std::invalid_argument("Invalid nucleotide");
-    }
+    
     return complement_lookup.at(c);
 }
 
 bool read_sequence(const std::string& filename, dna_sequence& sequence) {
     std::ifstream file(filename);
-    if (!file) {
+    if (!file)
         return false;
-    }
 
     std::string line;
     while (std::getline(file, line)) {
         // Skip the header line in FASTA/FASTQ
-        if (line.empty() || line[0] == '>' || line[0] == '@') {
-            continue;
-        }
+        if (line.empty() || line[0] == '>' || line[0] == '@') continue;
 
         // Read the sequence line
         sequence = line;
@@ -58,7 +59,6 @@ bool read_sequence(const std::string& filename, dna_sequence& sequence) {
                 return c != 'A' && c != 'T' && c != 'G' && c != 'C';
         }), sequence.end());
 
-        std::cout << sequence << std::endl;
         break;
     }
 

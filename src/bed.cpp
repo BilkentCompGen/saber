@@ -14,9 +14,8 @@ void construct_match_table(std::vector<std::vector<int>> &d, dna_block &_block, 
 	// computation of the recursive formulation
 	for(unsigned int i = 1; i <= l; ++i)
 		for(unsigned int j = 1; j <= n; ++j)
-            d[i][j] = std::min({d[i - 1][j] + C_CHAR_DELETION, d[i][j - 1] + C_CHAR_INSERTION, d[i - 1][j - 1] + (_block[i - 1] == _B[j - 1] ? 0 : C_CHAR_SNP)});
+            d[i][j] = min_3(d[i-1][j] + C_CHAR_DELETION, d[i][j-1] + C_CHAR_INSERTION, d[i-1][j-1] + (_block[i-1] == _B[j-1] ? 0 : C_CHAR_SNP));
 }
-
 
 int find_starting_position(std::vector<std::vector<int>> &d, int _j, int best_end, dna_block &_block, dna_sequence &_B) {
 	int j = best_end;
@@ -41,33 +40,30 @@ int find_starting_position(std::vector<std::vector<int>> &d, int _j, int best_en
 	return j;
 }
 
-
 bool ignore_match(int dist, int l1, int l2, double error_rate) {
-    return dist > std::ceil(error_rate * ((l1 + l2 + 0.0) / 2.0));
+    return dist > (error_rate * ((l1 + l2) / 2.0));
 }
 
-void calculate_W(std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, dna_sequence &seq1, dna_sequence &seq2, int min_block, int max_block, double error_rate) {
+void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     // Random initialization
     coin_tosser ct;
 
     int m = seq1.size();
     int n = seq2.size();
 
-    int block_range = max_block - min_block + 1;
+    int block_range = settings.max_block - settings.min_block + 1;
 
-    W = std::vector<std::vector<int>>(m, std::vector<int>(block_range, INF_DIST));
-    S = std::vector<std::vector<std::tuple<int,int, bool>> >(m, std::vector<std::tuple<int,int,bool>>(block_range, UNKNOWN_TUPLE));
+    W = std::vector<std::vector<w_entry>>(m, std::vector<w_entry>(block_range, w_entry()));
 
     for (int i = 0; i < m; i++) {
         int l_max;
 
-	    if (max_block + i < m)
-		    l_max = max_block;
+	    if (settings.max_block + i < m)
+		    l_max = settings.max_block;
 	    else
 		    l_max = m - i;
 	    
-
-        if (l_max < min_block) continue;
+        if (l_max < settings.min_block) continue;
 
         std::vector<std::vector<int>> d;
 	    std::vector<std::vector<int>> d_rev;
@@ -78,15 +74,14 @@ void calculate_W(std::vector<std::vector<int>> &W, std::vector<std::vector<std::
 	    construct_match_table(d, block, seq2);
 	    construct_match_table(d_rev, block_rev, seq2);
 
-	    for (int j = l_max; j >= min_block; --j) {
-		    int j_idx = j - min_block;
+	    for (int j = l_max; j >= settings.min_block; --j) {
+		    int j_idx = j - settings.min_block;
 		
 
 		    // To find the best match for block of length j using the match table,
 		    // 		Find min from both tables for row j.
 		    // 		Determine whether to reverse or not by selecting the best table for this j.
 		    // 		Find the starting point of the block by going backwards from the table.
-
 		    int dist = INF_DIST;
 		    int rev_dist = INF_DIST;
 
@@ -121,15 +116,14 @@ void calculate_W(std::vector<std::vector<int>> &W, std::vector<std::vector<std::
 			    best_start = find_starting_position(d, j, best_end, block, seq2);
 		    }
 
-            if (best_start == -1 || ignore_match(best_dist, j, best_end - best_start, error_rate)) continue;
+            if (best_start == -1 || ignore_match(best_dist, j, best_end - best_start, settings.error_rate)) continue;
             
-			S[i][j_idx] = std::make_tuple(best_start, best_end, reversed);
-            W[i][j_idx] = best_dist;
+            W[i][j_idx].set(best_dist, best_start, best_end, reversed);
 	    }
     }
 }
 
-void calculate_N(std::vector<int> &N, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, dna_sequence &seq1, dna_sequence &seq2, int max_iterations, int min_block, int max_block) {
+void calculate_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     int m = seq1.size();
 
     N = std::vector<int>(m+1, -1);
@@ -138,16 +132,14 @@ void calculate_N(std::vector<int> &N, std::vector<std::vector<int>> &W, std::vec
 
     int bs = char_dist;
 
-    std::vector<int> order(m - min_block + 1);
-    std::iota(order.begin(), order.end(), min_block);
+    std::vector<int> order(m - settings.min_block + 1);
+    std::iota(order.begin(), order.end(), settings.min_block);
 
-    for (int it = 0; it < max_iterations; it++) {
+    for (int it = 0; it < settings.max_iterations; it++) {
         // For the first iteration, calculate normally;
         // In the next iterations, calculate according to a randomized order.
 
-        if (it > 0) {
-            std::random_shuffle(order.begin(), order.end());
-        }
+        if (it > 0) std::random_shuffle(order.begin(), order.end());
 
         int score_before = bs;
         for (int i : order) { 
@@ -158,27 +150,27 @@ void calculate_N(std::vector<int> &N, std::vector<std::vector<int>> &W, std::vec
             
             // pass: dont consider this character in a block operation
             N[i] = -1;
-            int score = block_edit_score(seq1, seq2, N, m, W, S, best_score - 1, min_block, max_block);
-            if (score <= best_score - 1) {
+            int score = block_edit_score(seq1, seq2, N, m, W, best_score - 1, settings);
+            if (score < best_score) {
                 best_score = score;
                 best_choice = -1;
             }
 
             int dont_remove = 0;
 
-            for (int j = max_block; j >= min_block; j--) {
+            for (int j = settings.max_block; j >= settings.min_block; j--) {
                 
                 int i_idx = i-j+1;
-                int j_idx = j-min_block;
+                int j_idx = j-settings.min_block;
                 
                 if (i_idx < 0)
                     continue;
 
                 // Block Move
-                if (W[i_idx][j_idx] != INF_DIST && !block_overlaps_in_B(N, m, S, min_block, max_block)) {
+                if (W[i_idx][j_idx].valid() && !block_overlaps_in_B(N, i, W, settings)) {
 
                     N[i] = j;
-                    score =  block_edit_score(seq1, seq2, N, m, W, S, best_score - 1, min_block, max_block);
+                    score =  block_edit_score(seq1, seq2, N, m, W, best_score - 1, settings);
                     if (score < best_score) {
                         best_score = score;
                         best_choice = j;
@@ -190,7 +182,7 @@ void calculate_N(std::vector<int> &N, std::vector<std::vector<int>> &W, std::vec
                 if (dont_remove <= 0) {
 
                     N[i] = -j;
-                    score =  block_edit_score(seq1, seq2, N, m, W, S, INF_DIST, min_block, max_block);
+                    score =  block_edit_score(seq1, seq2, N, m, W, INF_DIST, settings);
                     if (score < best_score) {
                         best_score = score;
                         best_choice = -j;
@@ -213,8 +205,8 @@ void calculate_N(std::vector<int> &N, std::vector<std::vector<int>> &W, std::vec
     }
 }
 
-void get_block_matches(std::vector<struct block_match> &block_matches, std::vector<int> &N, int i, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int min_block, int max_block) {
-    while (i >= min_block) {
+void get_block_matches(std::vector<block_match> &block_matches, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, alignment_setting settings) {
+    while (i >= settings.min_block) {
         if (N[i] == -1) {
             // Pass Character
             i--;
@@ -226,10 +218,7 @@ void get_block_matches(std::vector<struct block_match> &block_matches, std::vect
             if (i-j+1 < 0)
                 break;
 
-            struct block_match match = {
-                .loc1 = std::make_pair(i-j+1, i+1),
-                .remove = true
-            };
+            block_match match(i-j+1, i+1);
 
             block_matches.emplace_back(match);         
 
@@ -241,13 +230,7 @@ void get_block_matches(std::vector<struct block_match> &block_matches, std::vect
             if (i-j+1 < 0)
                 break;
 
-            struct block_match match = {
-                .loc1 = std::make_pair(i-j+1, i+1),
-                .loc2 = std::make_pair(std::get<0>(S[i-j+1][j-min_block]), std::get<1>(S[i-j+1][j-min_block])),
-                .remove = false,
-                .reversed = std::get<2>(S[i-j+1][j-min_block]),
-                .dist = W[i-j+1][j-min_block]
-            };
+            block_match match(i-j+1, i+1, W[i-j+1][j-settings.min_block].get_start(), W[i-j+1][j-settings.min_block].get_end(), W[i-j+1][j-settings.min_block].is_reversed(), W[i-j+1][j-settings.min_block].get_score());
 
             block_matches.emplace_back(match);         
 
@@ -256,7 +239,7 @@ void get_block_matches(std::vector<struct block_match> &block_matches, std::vect
     }
 }
 
-void get_remaining_characters(std::string &new_seq1, std::string &new_seq2, dna_sequence &seq1, dna_sequence &seq2, int _i, std::vector<struct block_match> &block_matches) {
+void get_remaining_characters(dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, int _i, std::vector<block_match> &block_matches) {
     int n = seq2.size();
     
     new_seq1 = "";
@@ -264,7 +247,7 @@ void get_remaining_characters(std::string &new_seq1, std::string &new_seq2, dna_
 
     for (int i = 0; i < _i; i++) {
         bool occupied = false;
-        for (struct block_match match : block_matches) {
+        for (block_match match : block_matches) {
             if (i >= match.loc1.first && i < match.loc1.second) {
                 occupied = true;
                 break;
@@ -272,13 +255,12 @@ void get_remaining_characters(std::string &new_seq1, std::string &new_seq2, dna_
         }
         if (!occupied) {
             new_seq1.push_back(seq1[i]);
-            //std::cout << "seq1: unoccupied char at " << i << ": " << seq1[i] << std::endl;
         }
     }
 
     for (int i = 0; i < n; i++) {
         bool occupied = false;
-        for (struct block_match match : block_matches) {
+        for (block_match match : block_matches) {
             if (!match.remove && i >= match.loc2.first && i < match.loc2.second) {
                 occupied = true;
                 break;
@@ -290,54 +272,61 @@ void get_remaining_characters(std::string &new_seq1, std::string &new_seq2, dna_
     }
 }
 
-void get_remaining_characters(std::string &new_seq1, std::string &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<bool> &marked1, std::vector<bool> &marked2) {
+void get_remaining_characters(dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<bool> &marked1, std::vector<bool> &marked2) {
     int m = seq1.size();
     int n = seq2.size();
-    
-    new_seq1 = "";
-    new_seq2 = "";
 
-    for (int i = 0; i < m; i++) 
+    new_seq1.reserve(m);
+    new_seq2.reserve(n);
+
+    int i = 0;
+    for (; i < m && i < n; i++) {
         if (!marked1[i])
             new_seq1.push_back(seq1[i]);
-    
-    for (int j = 0; j < n; j++) 
-        if (!marked2[j])
-            new_seq2.push_back(seq2[j]);
+        if (!marked2[i])
+            new_seq2.push_back(seq2[i]);
+    }
+
+    // If seq1 is longer
+    for (; i < m; i++) 
+        if (!marked1[i])
+            new_seq1.push_back(seq1[i]);
+            
+    // If seq2 is longer
+    for (; i < n; i++) 
+        if (!marked2[i])
+            new_seq2.push_back(seq2[i]);
 }
 
 bool overlap(int b1_s, int b1_e, int b2_s, int b2_e) {
-    bool dont_overlap = b1_s >= b2_e || b2_s >= b1_e;
-    return !dont_overlap;
+    return b2_s < b1_e && b2_e > b1_s;
 }
 
-bool block_overlaps_in_B(std::vector<int> &N, int _i, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int min_block, int max_block) {
+bool block_overlaps_in_B(std::vector<int> &N, int _i, std::vector<std::vector<w_entry>> &W, alignment_setting settings) {
     // precondition: N[i] >= MIN_BLOCK_LEN
-    if (N[_i] < min_block) 
+    if (N[_i] < settings.min_block) 
         return false;
     
     int i = _i;
     int j = N[i]; 
     int i_idx = i - j + 1;
-    int j_idx = j - min_block;
+    int j_idx = j - settings.min_block;
     
-    std::tuple<int,int, bool> block = S[i_idx][j_idx];
-    int b_start = std::get<0>(block);
-    int b_end = std::get<1>(block);
+    int b_start = W[i_idx][j_idx].get_start();
+    int b_end = W[i_idx][j_idx].get_end();
 
     i -= j;
-    while (i >= min_block - 1) {
+    while (i >= settings.min_block - 1) {
         if (N[i] < 0) { // character pass or block remove, overlap is not possible
             j = -N[i];
             i -= j;
         } else {
             j = N[i];
             i_idx = i - j + 1;
-            j_idx = j - min_block;
+            j_idx = j - settings.min_block;
 
-            std::tuple<int,int, bool> block2 = S[i_idx][j_idx];
-            int b2_start = std::get<0>(block2);
-            int b2_end = std::get<1>(block2);
+            int b2_start = W[i_idx][j_idx].get_start();
+            int b2_end = W[i_idx][j_idx].get_end();
 
             if (overlap(b_start, b_end, b2_start, b2_end))
                 return true;
@@ -348,18 +337,18 @@ bool block_overlaps_in_B(std::vector<int> &N, int _i, std::vector<std::vector<st
 }
 
 // Returns the block edit score as well as block matches and the new sequences
-int block_edit_score(std::vector<struct block_match> &block_matches, std::string &new_seq1, std::string &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int _i, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int cutoff, int min_block, int max_block) {
-    block_matches = std::vector<struct block_match>();
+int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int _i, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings) {
+    block_matches = std::vector<block_match>();
     int m = seq1.size();
     int n = seq2.size();
 
-    get_block_matches(block_matches, N, _i, W, S, min_block, max_block);
+    get_block_matches(block_matches, N, _i, W, settings);
     
     // Calculate the block score and the remaining characters at the same time
     std::vector<bool> marked1(m, false), marked2(n, false);
 
     int block_dist = 0;
-    for (struct block_match match : block_matches) {
+    for (block_match match : block_matches) {
         for (int i = match.loc1.first; i < match.loc1.second; i++)   marked1[i] = true;
 
         if (match.remove) {
@@ -369,17 +358,18 @@ int block_edit_score(std::vector<struct block_match> &block_matches, std::string
             block_dist += match.dist;
             for (int j = match.loc2.first; j < match.loc2.second; j++)   marked2[j] = true;
         }
-    }
 
-    //std::cout << "\t\tblock dist = " << block_dist << std::endl;
+        if (block_dist > cutoff) {
+            return INF_DIST;
+        }
+    }
 
     int char_cutoff = cutoff - block_dist;
     if (char_cutoff < 0) return INF_DIST;
-    //std::cout << "\t\tchar cutoff = " << char_cutoff << std::endl;
+
     get_remaining_characters(new_seq1, new_seq2, seq1, seq2, marked1, marked2);
 
     int remaining_char_dist = lev_dist_edlib(new_seq1, new_seq2, char_cutoff);
-    //std::cout << "\t\tchar dist = " << remaining_char_dist << std::endl;
 
     if (remaining_char_dist == -1 || remaining_char_dist > char_cutoff) return INF_DIST;
 
@@ -387,26 +377,27 @@ int block_edit_score(std::vector<struct block_match> &block_matches, std::string
 }
 
 // Does not return block matches or new sequences
-int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int i, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int cutoff, int min_block, int max_block) {
-    std::vector<struct block_match> block_matches;
-    std::string new_seq1, new_seq2;
-    return block_edit_score(block_matches, new_seq1, new_seq2, seq1, seq2, N, i, W, S, cutoff, min_block, max_block);
+int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings) {
+    if (cutoff < 0) return INF_DIST;
+    std::vector<block_match> block_matches;
+    dna_sequence new_seq1, new_seq2;
+    return block_edit_score(block_matches, new_seq1, new_seq2, seq1, seq2, N, i, W, cutoff, settings);
 }
 
 // Precondition: block matches were already computed
-int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<struct block_match> &block_matches) {
+int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<block_match> &block_matches) {
     int m = seq1.size();
 
-    std::string new_seq1, new_seq2;
+    dna_sequence new_seq1, new_seq2;
     get_remaining_characters(new_seq1, new_seq2, seq1, seq2, m, block_matches);
 
     int block_dist = 0;
-    for (struct block_match match : block_matches) {
-        if (match.remove) {
+    for (block_match match : block_matches) {
+        if (match.remove) 
             block_dist += C_BLOCK_DELETION;
-        } else {
+        else 
             block_dist += match.dist;
-        }
+        
     }
 
     int remaining_char_dist = lev_dist_edlib(new_seq1, new_seq2, -1);
@@ -414,18 +405,15 @@ int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<struct 
     return block_dist + remaining_char_dist;
 }
 
-
-int bed(std::vector<struct block_match> &block_matches, std::string &_seq1, std::string &_seq2, int max_iterations, int min_block, int max_block, double error_rate) {
-    std::vector<std::vector<int>> W;
-    std::vector<std::vector<std::tuple<int,int,bool>> > S;
-    std::vector<int> M;
+int bed(std::vector<block_match> &block_matches, dna_sequence &_seq1, dna_sequence &_seq2, int max_iterations, alignment_setting settings) {
+    std::vector<std::vector<w_entry>> W;
     std::vector<int> N;
 
-    std::string new_seq1, new_seq2;
+    dna_sequence new_seq1, new_seq2;
 
-    calculate_W(W, S, _seq1, _seq2, min_block, max_block, error_rate);
-    calculate_N(N, W, S, _seq1, _seq2, max_iterations, min_block, max_block);
+    calculate_W(W, _seq1, _seq2, settings);
+    calculate_N(N, W, _seq1, _seq2, settings);
 
-    int block_edit_distance = block_edit_score(block_matches, new_seq1, new_seq2, _seq1, _seq2, N, N.size() - 1, W, S, INF_DIST, min_block, max_block);
+    int block_edit_distance = block_edit_score(block_matches, new_seq1, new_seq2, _seq1, _seq2, N, N.size() - 1, W, INF_DIST, settings);
     return block_edit_distance;
 }
