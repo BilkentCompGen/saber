@@ -1,49 +1,151 @@
 #ifndef __bed__h
 #define __bed__h
 
-#include "core.h"
-#include "edit_dist.h"
+#include "ed.h"
+#include "types.h"
+#include "constants.h"
 
 #include <algorithm>
 #include <tuple>
 
-// Approximate Block Edit Distance
-int approximate_bed(seqan::DnaString &seq1, seqan::DnaString &seq2, aho_corasick_pattern &pattern);
+/**
+ * Constructs a match table for a block and a sequence. This is used to compute W
+ * 
+ * @param d The match table to be constructed.
+ * @param block A block from source sequence.
+ * @param B The target sequence.
+ */
+void construct_match_table(std::vector<std::vector<int>> &d, dna_block &block, dna_sequence &B);
 
-// Direct Computation of Block Matches
-void construct_match_table(std::vector<std::vector<int>> &d, dna_block &block, std::string &B);
-void construct_match_table(std::vector<std::vector<int>> &d, std::string &_block, std::string &_B);
+/**
+ * Backtracks through the match table to find the best starting for a match. This is used to compute W.
+ * 
+ * @param d The match table.
+ * @param _j The current position in the sequence.
+ * @param best_end The best ending position found so far.
+ * @param block A block from source sequence.
+ * @param B The target sequence.
+ * @return The starting position of the match.
+ */
+int find_starting_position(std::vector<std::vector<int>> &d, int _j, int best_end, dna_block &block, dna_sequence &B);
 
-int find_starting_position(std::vector<std::vector<int>> &d, int _j, int best_end, dna_block &block, std::string &B);
-int find_starting_position(std::vector<std::vector<int>> &d, int _j, int best_end, std::string &_block, std::string &_B);
+/**
+ * Determines whether a match should be ignored based on its distance and lengths.
+ * 
+ * @param dist The distance of the match.
+ * @param l1 The length of the first block.
+ * @param l2 The length of the second block.
+ * @param error_rate The maximum error rate to be considered.
+ * @return True if the match should be ignored, false otherwise.
+ */
+bool ignore_match(int dist, int l1, int l2, double error_rate);
 
-// ignore matches criteria
-bool ignore_match(int dist, int length1, int length2, double error_rate);
-// Calculate W
-void calculate_W(std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, seqan::DnaString &seq1, seqan::DnaString &seq2, int min_block, int max_block, double error_rate);
-// Calculate M
-void calculate_N(std::vector<int> &N, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, seqan::DnaString &seq1, seqan::DnaString &seq2, int max_iterations, int min_block, int max_block);
+/**
+ * Calculates the W table for two sequences.
+ * 
+ * @param W The W table to be calculated.
+ * @param seq1 The first sequence.
+ * @param seq2 The second sequence.
+ * @param settings The alignment settings.
+ */
+void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings);
 
-// Each block match includes the following information:
-//      match[0] = start index of block from string A
-//      match[1] = end index of block from string A (exclusive)
-//      match[2] = start index of block from string B
-//      match[3] = end index of block from string B (exclusive)
-//      match[4] = 1 if reversed, else 0
-//      match[5] = distance between blocks
-//      
-//      if indexes 2 and 3 are -1, then it is considered a block remove
-void get_block_matches(std::vector<struct block_match> &block_matches, std::vector<int> &N, int i, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int min_block, int max_block);
-void get_remaining_characters(std::string &new_seq1, std::string &new_seq2, seqan::DnaString &seq1, seqan::DnaString &seq2, int _i, std::vector<std::vector<int>> &block_matches);
+/**
+ * Calculates the N table for two sequences.
+ * 
+ * @param N The N table to be calculated.
+ * @param W The W table.
+ * @param seq1 The first sequence.
+ * @param seq2 The second sequence.
+ * @param settings The alignment settings.
+ */
+void calculate_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings);
 
-int block_edit_score(std::vector<struct block_match> &block_matches, std::string &new_seq1, std::string &new_seq2, seqan::DnaString &seq1, seqan::DnaString &seq2, std::vector<int> &N, int _i, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int cutoff, int min_block, int max_block);
-int block_edit_score(seqan::DnaString &seq1, seqan::DnaString &seq2, std::vector<int> &N, int i, std::vector<std::vector<int>> &W, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int cutoff, int min_block, int max_block);
+/**
+ * Gets the block matches for a sequence.
+ * 
+ * @param block_matches The block matches to be obtained.
+ * @param N The N table.
+ * @param i The current position in the sequence.
+ * @param W The W table.
+ * @param settings The alignment settings.
+ */
+void get_block_matches(std::vector<block_match> &block_matches, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, alignment_setting settings);
 
-int block_edit_score(seqan::DnaString &seq1, seqan::DnaString &seq2, std::vector<struct block_match> &block_matches);
+/**
+ * Gets the remaining characters in two sequences after a match.
+ * 
+ * @param new_seq1 The remaining characters from first sequence to be calculated.
+ * @param new_seq2 The remaining characters from second sequence to be calculated.
+ * @param seq1 The original first sequence.
+ * @param seq2 The original second sequence.
+ * @param _i The current position in the sequences.
+ * @param block_matches The block matches.
+ */
+void get_remaining_characters(dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, int _i, std::vector<std::vector<int>> &block_matches);
 
-bool block_overlaps_in_B(std::vector<int> &N, int _i, std::vector<std::vector<std::tuple<int,int,bool>> > &S, int min_block, int max_block);
+/**
+ * Calculates the block edit score for two sequences.
+ * 
+ * @param block_matches The block matches.
+ * @param new_seq1 The first sequence after the match.
+ * @param new_seq2 The second sequence after the match.
+ * @param seq1 The original first sequence.
+ * @param seq2 The original second sequence.
+ * @param N The N table.
+ * @param _i The current position in the sequences.
+ * @param W The W table.
+ * @param cutoff The cutoff score.
+ * @param settings The alignment settings.
+ * @return The block edit score.
+ */
+int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int _i, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings);
 
-// overall block edit distance calculation.
-int bed(std::vector<struct block_match> &block_matches, std::string &_seq1, std::string &_seq2, int max_iterations, int min_block, int max_block, double error_rate);
+/**
+ * Calculates the block edit score for two sequences.
+ * 
+ * @param seq1 The first sequence.
+ * @param seq2 The second sequence.
+ * @param N The N table.
+ * @param i The current position in the sequences.
+ * @param W The W table.
+ * @param cutoff The cutoff score.
+ * @param settings The alignment settings.
+ * @return The block edit score.
+ */
+int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings);
+
+/**
+ * Calculates the block edit score for two sequences.
+ * 
+ * @param seq1 The first sequence.
+ * @param seq2 The second sequence.
+ * @param block_matches The block matches.
+ * @return The block edit score.
+ */
+int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<block_match> &block_matches);
+
+/**
+ * Determines whether a block overlaps in sequence B.
+ * 
+ * @param N The N table.
+ * @param _i The current position in the sequence.
+ * @param W The W table.
+ * @param settings The alignment settings.
+ * @return True if the block overlaps, false otherwise.
+ */
+bool block_overlaps_in_B(std::vector<int> &N, int _i, std::vector<std::vector<w_entry>> &W, alignment_setting settings);
+
+/**
+ * Calculates the overall block edit distance for two sequences.
+ * 
+ * @param block_matches The block matches to be computed.
+ * @param _seq1 The first sequence.
+ * @param _seq2 The second sequence.
+ * @param max_iterations The maximum number of iterations.
+ * @param settings The alignment settings.
+ * @return The block edit distance.
+ */
+int bed(std::vector<block_match> &block_matches, dna_sequence &_seq1, dna_sequence &_seq2, int max_iterations, alignment_setting settings);
 
 #endif // __bed__h
