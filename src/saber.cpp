@@ -11,6 +11,9 @@
 #define VERSION "1.2"
 #define MAXLINE 32
 
+// TODO: dont consider a block move if there is a larger alternative.
+// TODO: improve Compute-N performance and correctness.
+
 void print_block_matches(std::vector<block_match> &matches, dna_sequence &seq1, dna_sequence &seq2, FILE *out) {
     fprintf(out, "\n");
     for (std::size_t i = 0; i < matches.size(); i++) {
@@ -263,7 +266,7 @@ int main(int argc, char ** argv) {
     }
 
     
-    calculate_N(N, W, seq1, seq2, settings);
+    find_optimal_N(N, W, seq1, seq2, settings);
     
     if (report_time) {
         t2 = std::chrono::high_resolution_clock::now();
@@ -273,7 +276,7 @@ int main(int argc, char ** argv) {
     }
 
     fprintf(out, "\n");
-    int block_edit_distance = block_edit_score(block_matches, new_seq1, new_seq2, seq1, seq2, N, N.size() - 1, W, INF_DIST, settings);
+    int block_edit_distance = block_edit_score(block_matches, new_seq1, new_seq2, seq1, seq2, N, W, INF_DIST, settings);
 
     fprintf(out, "Block Operations: \n");
     fprintf(out, "-------------------------------------\n");

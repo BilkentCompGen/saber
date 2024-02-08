@@ -59,7 +59,7 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
  * @param seq2 The second sequence.
  * @param settings The alignment settings.
  */
-void calculate_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings);
+void find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings);
 
 /**
  * Gets the block matches for a sequence.
@@ -79,10 +79,9 @@ void get_block_matches(std::vector<block_match> &block_matches, std::vector<int>
  * @param new_seq2 The remaining characters from second sequence to be calculated.
  * @param seq1 The original first sequence.
  * @param seq2 The original second sequence.
- * @param _i The current position in the sequences.
  * @param block_matches The block matches.
  */
-void get_remaining_characters(dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, int _i, std::vector<std::vector<int>> &block_matches);
+void get_remaining_characters(dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<std::vector<int>> &block_matches);
 
 /**
  * Calculates the block edit score for two sequences.
@@ -93,13 +92,12 @@ void get_remaining_characters(dna_sequence &new_seq1, dna_sequence &new_seq2, dn
  * @param seq1 The original first sequence.
  * @param seq2 The original second sequence.
  * @param N The N table.
- * @param _i The current position in the sequences.
  * @param W The W table.
  * @param cutoff The cutoff score.
  * @param settings The alignment settings.
  * @return The block edit score.
  */
-int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int _i, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings);
+int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings);
 
 /**
  * Calculates the block edit score for two sequences.
@@ -107,13 +105,12 @@ int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_
  * @param seq1 The first sequence.
  * @param seq2 The second sequence.
  * @param N The N table.
- * @param i The current position in the sequences.
  * @param W The W table.
  * @param cutoff The cutoff score.
  * @param settings The alignment settings.
  * @return The block edit score.
  */
-int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings);
+int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings);
 
 /**
  * Calculates the block edit score for two sequences.
@@ -129,12 +126,13 @@ int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<block_m
  * Determines whether a block overlaps in sequence B.
  * 
  * @param N The N table.
- * @param _i The current position in the sequence.
+ * @param _i The end position of the block
+ * @param _j The length of the block
  * @param W The W table.
  * @param settings The alignment settings.
  * @return True if the block overlaps, false otherwise.
  */
-bool block_overlaps_in_B(std::vector<int> &N, int _i, std::vector<std::vector<w_entry>> &W, alignment_setting settings);
+bool block_overlaps_in_B(std::vector<int> &N, int _i, int _j, std::vector<std::vector<w_entry>> &W, alignment_setting settings);
 
 /**
  * Calculates the overall block edit distance for two sequences.
