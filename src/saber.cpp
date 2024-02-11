@@ -9,7 +9,7 @@
 #include <cstring>
 
 #define VERSION "1.2"
-#define MAXLINE 32
+#define MAXLINE 64
 
 void print_block_matches(std::vector<block_match> &matches, dna_sequence &seq1, dna_sequence &seq2, FILE *out) {
     fprintf(out, "\n");
@@ -184,9 +184,8 @@ int main(int argc, char ** argv) {
     if (max_block < min_block)
         error("Minimum block length cannot be larger than maximum block length");
 
-    if (min_block <= 1 || max_block <= 1) {
+    if (min_block <= 1 || max_block <= 1)
         error("Block lengths must be greater than 1.");
-    }
 
     if (error_rate > 1)
         error("Error rate must not exceed 1.");
@@ -203,18 +202,16 @@ int main(int argc, char ** argv) {
     // More checks
     if (!output_set)
         printf("Output path was not specified, printing the output directly to the console...\n");
-
     
     if (!l_set && !m_set) {
         printf("Block lengths were not specified, using the default values...\n");
-
     } else if (!m_set) {
         printf("Minimum block length was specified but maximum block length was not specified. Maximum block length was automatically set...\n");
-        max_block = min_block * 2 - 1;
+        max_block = min_block * 2;
 
     }  else if (!l_set) {
         printf("Maximum block length was specified but minimum block length was not specified. Minimum block length was automatically set...\n");
-        min_block = (max_block + 1) / 2;
+        min_block = (max_block) / 2;
     }
 
     if (!e_set) 
@@ -235,7 +232,7 @@ int main(int argc, char ** argv) {
     }
 
     if (!read_sequence(t, seq2)) {
-        std::cerr << "Failed to read the first sequence from file " << t << std::endl;
+        std::cerr << "Failed to read the second sequence from file " << t << std::endl;
         return 1;
     }
  
@@ -261,19 +258,18 @@ int main(int argc, char ** argv) {
 
         t1 = std::chrono::high_resolution_clock::now();
     }
-
     
-    calculate_N(N, W, seq1, seq2, settings);
+    int it = find_optimal_N(N, W, seq1, seq2, settings);
     
     if (report_time) {
         t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = t2 - t1;
         total_elapsed += elapsed.count();
-        fprintf(out, "N computed in %.2f seconds.\n", elapsed.count());
+        fprintf(out, "N computed in %.2f seconds, with %d iterations.\n", elapsed.count(), it);
     }
 
     fprintf(out, "\n");
-    int block_edit_distance = block_edit_score(block_matches, new_seq1, new_seq2, seq1, seq2, N, N.size() - 1, W, INF_DIST, settings);
+    int block_edit_distance = block_edit_score(block_matches, new_seq1, new_seq2, seq1, seq2, N, W, INF_DIST, settings);
 
     fprintf(out, "Block Operations: \n");
     fprintf(out, "-------------------------------------\n");
