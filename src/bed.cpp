@@ -75,7 +75,6 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
 	    for (int j = l_max; j >= settings.min_block; --j) {
 		    int j_idx = j - settings.min_block;
 		
-
 		    // To find the best match for block of length j using the match table,
 		    // 		Find min from both tables for row j.
 		    // 		Determine whether to reverse or not by selecting the best table for this j.
@@ -114,7 +113,8 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
 			    best_start = find_starting_position(d, j, best_end, block, seq2);
 		    }
 
-            if (best_start == -1 || ignore_match(best_dist, j, best_end - best_start, settings.error_rate)) continue;
+            if (best_start == -1 || best_end - best_start + 1 < settings.min_block || best_end - best_start + 1 > settings.max_block ||  ignore_match(best_dist, j, best_end - best_start, settings.error_rate)) 
+                continue;
             
             W[i][j_idx].set(best_dist, best_start, best_end, reversed);
 	    }
@@ -131,7 +131,7 @@ std::stack<int> reached_list(std::vector<int> &N) {
     return reached;
 }
 
-std::pair<int, int> optimize_index(std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, int old_score, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
+std::pair<int,int> optimize_index(std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, int old_score, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     int choice_before = N[i];
     
     int best_score = old_score;
@@ -185,7 +185,7 @@ std::pair<int, int> optimize_index(std::vector<int> &N, int i, std::vector<std::
     return std::make_pair(best_choice, best_score);
 }
 
-void find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
+int find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     int m = seq1.size();
 
     N = std::vector<int>(m, -1);
@@ -196,37 +196,37 @@ void find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, d
     // Initial block score
     int bs = char_dist;
 
-
     // In the first iteration, go over all indices
     for (int i = settings.min_block; i < m; i++) {
         auto best = optimize_index(N, i, W, bs, seq1, seq2, settings);
-        N[i] = best.first;    
+        N[i] = best.first;
         bs = best.second;
     }
-    for (int it = 0; it < settings.max_iterations; it++) {
+
+    int it = 1;
+    for (; it < settings.max_iterations; it++) {
         // Get the list of indices that are reached.
         std::stack<int> reached = reached_list(N);
         
         int score_before = bs;
 
         while (!reached.empty()) {
-            // Get the top index from the stack
             int i = reached.top();
             reached.pop();
 
             // Optimize the index i and get the best choice and score
             auto best = optimize_index(N, i, W, bs, seq1, seq2, settings);
 
-            // Update N[i] with the best choice
             N[i] = best.first;
-            // Update the block score with the best score
             bs = best.second;
         }
 
-        // If the block score didn't improve, break the loop
+        // If the block score didn't improve, break early
         if (bs == score_before) break;
     }
+    return it;
 }
+
 void get_block_matches(std::vector<block_match> &block_matches, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, alignment_setting settings) {
     while (i >= settings.min_block) {
         if (N[i] == -1) {

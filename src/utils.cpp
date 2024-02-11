@@ -54,10 +54,17 @@ bool read_sequence(const std::string& filename, dna_sequence& sequence) {
         // Read the sequence line
         sequence = line;
         std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
-        sequence.erase(std::remove_if(sequence.begin(), sequence.end(), 
-            [](char c) {
-                return c != 'A' && c != 'T' && c != 'G' && c != 'C';
+        sequence.erase(std::remove_if(sequence.begin(), sequence.end(), [](char c) {
+            return c == '\n' || c == ' ';
         }), sequence.end());
+
+        // Check for invalid characters
+        if (std::any_of(sequence.begin(), sequence.end(), [](char c) {
+            return c != 'A' && c != 'T' && c != 'G' && c != 'C';
+        })) {
+            file.close();
+            return false;
+        }
 
         break;
     }

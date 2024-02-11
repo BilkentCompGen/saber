@@ -58,8 +58,9 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
  * @param seq1 The first sequence.
  * @param seq2 The second sequence.
  * @param settings The alignment settings.
+ * @return The number of iterations used to calculate the N table.
  */
-void find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings);
+int find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings);
 
 /**
  * Gets the block matches for a sequence.

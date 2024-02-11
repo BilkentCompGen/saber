@@ -30,9 +30,9 @@ Some useful optional arguments are as follows:
 ***-r or --runtime*** : Display the runtime of the program.     
 ***-o "filename"***   : Specify the output path (default: stdout)     
 ***-i _integer_***    : Specify the number of iterations in the algorithm (default: 3)      
-***-l _integer_***    : Specify the minimum block length (default: 8)       
-***-m _integer_***    : Specify the maximum block length (default: 15)       
-***-e _float_***      : Specify the error rate (default: 0.3)        
+***-l _integer_***    : Specify the minimum block length (default: 16)       
+***-m _integer_***    : Specify the maximum block length (default: 32)       
+***-e _float_***      : Specify the error rate (default: 0.15)        
 
 For more detailed information, run
 ```
