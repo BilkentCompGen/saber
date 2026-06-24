@@ -9,7 +9,7 @@
 #include <cstring>
 
 #define VERSION "1.2"
-#define MAXLINE 64
+#define MAXLINE 4096
 
 void print_block_matches(std::vector<block_match> &matches, dna_sequence &seq1, dna_sequence &seq2, FILE *out) {
     fprintf(out, "\n");
@@ -236,7 +236,7 @@ int main(int argc, char ** argv) {
         return 1;
     }
  
-    std::vector<std::vector<w_entry>> W;
+    std::vector<w_entry> W;
     std::vector<int> N;
     std::vector<block_match> block_matches;
     dna_sequence new_seq1, new_seq2;

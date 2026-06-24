@@ -2,7 +2,7 @@
 #include "utils.h"
 
 
-char dna_block::operator[](int index) {
+char dna_block::operator[](int index) const {
     if (index < 0 || index >= size()) 
         throw std::out_of_range("Index out of range");
                 
@@ -13,10 +13,10 @@ char dna_block::operator[](int index) {
     
 }
 
-dna_sequence dna_block::get_block() {
+dna_sequence dna_block::get_block() const {
     int n = size();
     dna_sequence result;
-    result.reserve(n);
+    result.resize(n);
 
     if (reversed) {
         for (int i = 0; i < n; i++) {
@@ -31,21 +31,22 @@ dna_sequence dna_block::get_block() {
     return result;
 }
 
-char *dna_block::c_str() {
-    int n = size();
-    char *str = new char[n + 1];
+const char *dna_block::c_str() const {
+    if (!cached) {
+        int n = size();
+        cached_str.resize(n);
 
-    if (reversed) {
-        for (int i = 0; i < n; i++) {
-            str[i] = complement((*seq)[end - i - 1]);
+        if (reversed) {
+            for (int i = 0; i < n; i++) {
+                cached_str[i] = complement((*seq)[end - i - 1]);
+            }
+        } else {
+            for (int i = 0; i < n; i++) {
+                cached_str[i] = (*seq)[start + i];
+            }
         }
-    } else {
-        for (int i = 0; i < n; i++) {
-            str[i] = (*seq)[start + i];
-        }
+        cached = true;
     }
 
-    str[n] = '\0';  // null-terminate the string
-
-    return str;
+    return cached_str.c_str();
 }

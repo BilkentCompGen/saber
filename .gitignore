@@ -1,0 +1,10 @@
+# Ignore FASTA and FASTQ sequences
+*.fa
+*.fasta
+*.fna
+*.fq
+*.fastq
+
+# Ignore built executables
+src/saber
+src/rearrangement_sim

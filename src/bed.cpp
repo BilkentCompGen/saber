@@ -5,35 +5,41 @@
 #include <cmath>
 #include <stack>
 
-void construct_match_table(std::vector<std::vector<int>> &d, dna_block &_block, dna_sequence &_B) {
+void construct_match_table(std::vector<int> &d, dna_block &_block, dna_sequence &_B) {
 	unsigned int l = _block.size();
 	unsigned int n = _B.size();
-
-	d = std::vector<std::vector<int>>(l + 1, std::vector<int>(n + 1, 0));
+	unsigned int stride = n + 1;
 
 	// initial conditions
-	for(unsigned int i = 1; i <= l; ++i) d[i][0] = i * C_CHAR_DELETION;
+	d[0] = 0;
+	for(unsigned int i = 1; i <= l; ++i) d[i * stride] = i * C_CHAR_DELETION;
 
 	// computation of the recursive formulation
-	for(unsigned int i = 1; i <= l; ++i)
-		for(unsigned int j = 1; j <= n; ++j)
-            d[i][j] = min_3(d[i-1][j] + C_CHAR_DELETION, d[i][j-1] + C_CHAR_INSERTION, d[i-1][j-1] + (_block[i-1] == _B[j-1] ? 0 : C_CHAR_SNP));
+	for(unsigned int i = 1; i <= l; ++i) {
+		unsigned int curr_row = i * stride;
+		unsigned int prev_row = (i - 1) * stride;
+		for(unsigned int j = 1; j <= n; ++j) {
+            d[curr_row + j] = min_3(d[prev_row + j] + C_CHAR_DELETION, d[curr_row + j - 1] + C_CHAR_INSERTION, d[prev_row + j - 1] + (_block[i-1] == _B[j-1] ? 0 : C_CHAR_SNP));
+		}
+	}
 }
 
-int find_starting_position(std::vector<std::vector<int>> &d, int _j, int best_end, dna_block &_block, dna_sequence &_B) {
+int find_starting_position(std::vector<int> &d, int _j, int best_end, dna_block &_block, dna_sequence &_B) {
 	int j = best_end;
 	int i = _j;
+	unsigned int stride = _B.size() + 1;
 
 	while (i > 0 && j > 0) {
-        if (d[i-1][j] + C_CHAR_DELETION == d[i][j]) { // Deletion
+		int curr = d[i * stride + j];
+        if (d[(i-1) * stride + j] + C_CHAR_DELETION == curr) { // Deletion
 			i--;
-		} else if (_block[i-1] == _B[j-1] && d[i-1][j-1] == d[i][j]) { // Character match
-			i--;
-			j--;
-		} else if (_block[i-1] != _B[j-1] && d[i-1][j-1] + C_CHAR_SNP == d[i][j]) { // SNP
+		} else if (_block[i-1] == _B[j-1] && d[(i-1) * stride + j - 1] == curr) { // Character match
 			i--;
 			j--;
-        } else if (d[i][j-1] + C_CHAR_INSERTION == d[i][j]) { // Insertions
+		} else if (_block[i-1] != _B[j-1] && d[(i-1) * stride + j - 1] + C_CHAR_SNP == curr) { // SNP
+			i--;
+			j--;
+        } else if (d[i * stride + j - 1] + C_CHAR_INSERTION == curr) { // Insertions
 			j--;
 		} else {
 		    throw std::runtime_error("Invalid match table.");
@@ -47,7 +53,7 @@ bool ignore_match(int dist, int l1, int l2, double error_rate) {
     return dist > (error_rate * ((l1 + l2) / 2.0));
 }
 
-void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
+void calculate_W(std::vector<w_entry> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     // Random initialization
     coin_tosser ct;
 
@@ -56,15 +62,17 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
 
     int block_range = settings.max_block - settings.min_block + 1;
 
-    W = std::vector<std::vector<w_entry>>(m, std::vector<w_entry>(block_range, w_entry()));
+    W = std::vector<w_entry>(m * block_range, w_entry());
+
+    // Pre-allocate flat DP tables once outside the loop
+    std::vector<int> d((settings.max_block + 1) * (n + 1), 0);
+    std::vector<int> d_rev((settings.max_block + 1) * (n + 1), 0);
+    unsigned int stride = n + 1;
 
     for (int i = 0; i < m; i++) {
         int l_max = std::min(settings.max_block, m - i);
 	    
         if (l_max < settings.min_block) continue;
-
-        std::vector<std::vector<int>> d;
-	    std::vector<std::vector<int>> d_rev;
 
 	    dna_block block = dna_block(&seq1, i, i + l_max);
         dna_block block_rev = dna_block(&seq1, i, i + l_max, true);
@@ -85,14 +93,15 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
 		    int loc = -1;
 		    int rev_loc = -1; 
 
+		    unsigned int row_offset = j * stride;
 		    for (int k = 0; k <= n; k++) {
-			    if (d[j][k] < dist || (d[j][k] == dist && ct.toss())) {
-				    dist = d[j][k];
+			    if (d[row_offset + k] < dist || (d[row_offset + k] == dist && ct.toss())) {
+				    dist = d[row_offset + k];
 				    loc = k;
 			    } 
 
-			    if (d_rev[j][k] < rev_dist || (d_rev[j][k] == rev_dist && ct.toss())) {
-				    rev_dist = d_rev[j][k];
+			    if (d_rev[row_offset + k] < rev_dist || (d_rev[row_offset + k] == rev_dist && ct.toss())) {
+				    rev_dist = d_rev[row_offset + k];
 				    rev_loc = k;
 			    }
  		    }
@@ -116,7 +125,7 @@ void calculate_W(std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_s
             if (best_start == -1 || best_end - best_start + 1 < settings.min_block || best_end - best_start + 1 > settings.max_block ||  ignore_match(best_dist, j, best_end - best_start, settings.error_rate)) 
                 continue;
             
-            W[i][j_idx].set(best_dist, best_start, best_end, reversed);
+            W[i * block_range + j_idx].set(best_dist, best_start, best_end, reversed);
 	    }
     }
 }
@@ -131,7 +140,7 @@ std::stack<int> reached_list(std::vector<int> &N) {
     return reached;
 }
 
-std::pair<int,int> optimize_index(std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, int old_score, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
+std::pair<int,int> optimize_index(std::vector<int> &N, int i, std::vector<w_entry> &W, int old_score, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     int choice_before = N[i];
     
     int best_score = old_score;
@@ -150,6 +159,7 @@ std::pair<int,int> optimize_index(std::vector<int> &N, int i, std::vector<std::v
     }
 
     int dont_remove = 0;
+    int block_range = settings.max_block - settings.min_block + 1;
 
     for (int j = settings.max_block; j >= settings.min_block; j--) {
         int i_idx = i-j+1;
@@ -158,7 +168,7 @@ std::pair<int,int> optimize_index(std::vector<int> &N, int i, std::vector<std::v
         if (i_idx < 0) continue;
 
         // Block Move
-        if (W[i_idx][j_idx].valid() && choice_before != j && !block_overlaps_in_B(N, i, j, W, settings)) {
+        if (W[i_idx * block_range + j_idx].valid() && choice_before != j && !block_overlaps_in_B(N, i, j, W, settings)) {
             N[i] = j;
             score =  block_edit_score(seq1, seq2, N, W, best_score - 1, settings);
             if (score < best_score) {
@@ -185,7 +195,7 @@ std::pair<int,int> optimize_index(std::vector<int> &N, int i, std::vector<std::v
     return std::make_pair(best_choice, best_score);
 }
 
-int find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
+int find_optimal_N(std::vector<int> &N, std::vector<w_entry> &W, dna_sequence &seq1, dna_sequence &seq2, alignment_setting settings) {
     int m = seq1.size();
 
     N = std::vector<int>(m, -1);
@@ -227,7 +237,8 @@ int find_optimal_N(std::vector<int> &N, std::vector<std::vector<w_entry>> &W, dn
     return it;
 }
 
-void get_block_matches(std::vector<block_match> &block_matches, std::vector<int> &N, int i, std::vector<std::vector<w_entry>> &W, alignment_setting settings) {
+void get_block_matches(std::vector<block_match> &block_matches, std::vector<int> &N, int i, std::vector<w_entry> &W, alignment_setting settings) {
+    int block_range = settings.max_block - settings.min_block + 1;
     while (i >= settings.min_block) {
         if (N[i] == -1) {
             // Pass Character
@@ -252,7 +263,8 @@ void get_block_matches(std::vector<block_match> &block_matches, std::vector<int>
             if (i-j+1 < 0)
                 break;
 
-            block_match match(i-j+1, i+1, W[i-j+1][j-settings.min_block].get_start(), W[i-j+1][j-settings.min_block].get_end(), W[i-j+1][j-settings.min_block].is_reversed(), W[i-j+1][j-settings.min_block].get_score());
+            unsigned int w_idx = (i - j + 1) * block_range + (j - settings.min_block);
+            block_match match(i-j+1, i+1, W[w_idx].get_start(), W[w_idx].get_end(), W[w_idx].is_reversed(), W[w_idx].get_score());
 
             block_matches.emplace_back(match);         
 
@@ -325,7 +337,7 @@ bool overlap(int b1_s, int b1_e, int b2_s, int b2_e) {
     return (b2_s < b1_e && b2_e > b1_s) && !(b1_s == b2_s && b1_e == b2_e);
 }
 
-bool block_overlaps_in_B(std::vector<int> &N, int _i, int _j,std::vector<std::vector<w_entry>> &W, alignment_setting settings) {
+bool block_overlaps_in_B(std::vector<int> &N, int _i, int _j, std::vector<w_entry> &W, alignment_setting settings) {
     if (_j < settings.min_block || _j > settings.max_block) 
         return false;
     
@@ -333,9 +345,10 @@ bool block_overlaps_in_B(std::vector<int> &N, int _i, int _j,std::vector<std::ve
     int j = _j;
     int i_idx = i - j + 1;
     int j_idx = j - settings.min_block;
+    int block_range = settings.max_block - settings.min_block + 1;
     
-    int b_start = W[i_idx][j_idx].get_start();
-    int b_end = W[i_idx][j_idx].get_end();
+    int b_start = W[i_idx * block_range + j_idx].get_start();
+    int b_end = W[i_idx * block_range + j_idx].get_end();
 
     std::vector<block_match> block_matches;
     get_block_matches(block_matches, N, N.size() - 1, W, settings);
@@ -349,7 +362,7 @@ bool block_overlaps_in_B(std::vector<int> &N, int _i, int _j,std::vector<std::ve
 }
 
 // Returns the block edit score as well as block matches and the new sequences
-int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings) {
+int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_seq1, dna_sequence &new_seq2, dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, std::vector<w_entry> &W, int cutoff, alignment_setting settings) {
     block_matches = std::vector<block_match>();
     int m = seq1.size();
     int n = seq2.size();
@@ -387,7 +400,7 @@ int block_edit_score(std::vector<block_match> &block_matches, dna_sequence &new_
 }
 
 // Does not return block matches or new sequences
-int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, std::vector<std::vector<w_entry>> &W, int cutoff, alignment_setting settings) {
+int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<int> &N, std::vector<w_entry> &W, int cutoff, alignment_setting settings) {
     if (cutoff < 0) return INF_DIST;
     std::vector<block_match> block_matches;
     dna_sequence new_seq1, new_seq2;
@@ -414,7 +427,7 @@ int block_edit_score(dna_sequence &seq1, dna_sequence &seq2, std::vector<block_m
 }
 
 int bed(std::vector<block_match> &block_matches, dna_sequence &_seq1, dna_sequence &_seq2, int max_iterations, alignment_setting settings) {
-    std::vector<std::vector<w_entry>> W;
+    std::vector<w_entry> W;
     std::vector<int> N;
 
     dna_sequence new_seq1, new_seq2;

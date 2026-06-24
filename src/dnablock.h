@@ -13,6 +13,8 @@ private:
     int start; // The start position of the block in the sequence (inclusive).
     int end; // The end position of the block in the sequence (exclusive).
     bool reversed; // Whether the block is reversed.
+    mutable std::string cached_str;
+    mutable bool cached;
 
 public:
     /**
@@ -24,7 +26,7 @@ public:
      * @param r Whether the block is reversed (default is false).
      */
     dna_block(dna_sequence *s, int start, int end, bool r = false) 
-        : seq(s), start(start), end(end), reversed(r) {
+        : seq(s), start(start), end(end), reversed(r), cached(false) {
         if (s == nullptr) {
             throw std::invalid_argument("dna_sequence pointer cannot be nullptr");
         }
@@ -35,7 +37,7 @@ public:
      * 
      * @return The size of the block.
      */
-    int size() {
+    int size() const {
         return end - start;
     }
     
@@ -44,6 +46,7 @@ public:
      */
     void reverse() {
         reversed = !reversed;
+        cached = false; // invalidate cache
     }
 
     /**
@@ -51,7 +54,7 @@ public:
      * 
      * @return True if the block is reversed, false otherwise.
      */
-    bool is_reversed() {
+    bool is_reversed() const {
         return reversed;
     }
 
@@ -60,7 +63,7 @@ public:
      * 
      * @return A pair of integers representing the start and end positions of the block.
      */
-    std::pair<int, int> get_range() {
+    std::pair<int, int> get_range() const {
         return std::make_pair(start, end);
     }
 
@@ -70,21 +73,21 @@ public:
      * @param index The index of the character.
      * @return The character at the specified index.
      */
-    char operator[](int index);
+    char operator[](int index) const;
 
     /**
      * Returns the block as a DNA sequence.
      * 
      * @return The block as a DNA sequence.
      */
-    dna_sequence get_block();
+    dna_sequence get_block() const;
 
     /**
      * Returns the block as a C-style string.
      * 
      * @return The block as a C-style string.
      */
-    char *c_str();
+    const char *c_str() const;
     
 };
 
