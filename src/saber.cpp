@@ -79,11 +79,8 @@ const char *get_filename_ext(const char *filename) {
 }
 
 bool is_fasta(char *filename) {
-    
-    char *ext = strrchr(filename, '.');
-    if(!ext || ext == filename) return false;
-    
-    if (strcasecmp(ext, "fa") || strcasecmp(ext, "fasta") || strcasecmp(ext, "fq") || strcasecmp(ext, "fastq"))
+    const char *ext = get_filename_ext(filename);
+    if (strcasecmp(ext, "fa") == 0 || strcasecmp(ext, "fasta") == 0 || strcasecmp(ext, "fq") == 0 || strcasecmp(ext, "fastq") == 0)
         return true;
 
     return false;

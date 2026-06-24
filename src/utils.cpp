@@ -12,6 +12,7 @@ static const std::map<char, char> complement_lookup = {
     {'T', 'A'},
     {'C', 'G'},
     {'G', 'C'},
+    {'N', 'N'},
 };
 
 static const char base_lookup[4] = {'A', 'T', 'C', 'G'};
@@ -28,6 +29,7 @@ char random_base_generator::generate() {
 }
 
 char base_mutator::mutate(char c) {
+    if (c == 'N') return base_lookup[dis(gen)];
     if (base_lookup_rev.find(c) == base_lookup_rev.end())
         throw std::invalid_argument("Invalid nucleotide");
 
@@ -42,33 +44,77 @@ char complement(char c) {
 }
 
 bool read_sequence(const std::string& filename, dna_sequence& sequence) {
-    std::ifstream file(filename);
+    std::ifstream file(filename, std::ios::binary);
     if (!file)
         return false;
 
+    // Get file size to pre-allocate memory
+    file.seekg(0, std::ios::end);
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+    sequence.clear();
+    if (size > 0) {
+        sequence.reserve(size);
+    }
+
     std::string line;
+    enum FileType { AUTO, FASTA, FASTQ, RAW } type = AUTO;
+
     while (std::getline(file, line)) {
-        // Skip the header line in FASTA/FASTQ
-        if (line.empty() || line[0] == '>' || line[0] == '@') continue;
-
-        // Read the sequence line
-        sequence = line;
-        std::transform(sequence.begin(), sequence.end(), sequence.begin(), ::toupper);
-        sequence.erase(std::remove_if(sequence.begin(), sequence.end(), [](char c) {
-            return c == '\n' || c == ' ';
-        }), sequence.end());
-
-        // Check for invalid characters
-        if (std::any_of(sequence.begin(), sequence.end(), [](char c) {
-            return c != 'A' && c != 'T' && c != 'G' && c != 'C';
-        })) {
-            file.close();
-            return false;
+        // Remove trailing carriage return, newline, or spaces
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n' || line.back() == ' ')) {
+            line.pop_back();
         }
 
-        break;
+        // Find first non-whitespace character
+        size_t first_non_space = line.find_first_not_of(" \t\r\n");
+        if (first_non_space == std::string::npos) {
+            continue; // Skip empty lines
+        }
+        if (first_non_space > 0) {
+            line = line.substr(first_non_space);
+        }
+
+        if (type == AUTO) {
+            if (line[0] == '>') {
+                type = FASTA;
+                continue;
+            } else if (line[0] == '@') {
+                type = FASTQ;
+                continue;
+            } else {
+                type = RAW;
+            }
+        }
+
+        if (type == FASTA) {
+            if (line[0] == '>') {
+                // Hit next sequence header, stop reading
+                break;
+            }
+        }
+
+        // Convert sequence to uppercase and clean internal whitespace
+        std::transform(line.begin(), line.end(), line.begin(), ::toupper);
+        line.erase(std::remove_if(line.begin(), line.end(), [](unsigned char c) {
+            return std::isspace(c);
+        }), line.end());
+
+        // Convert non-ATGCN characters to 'N'
+        for (char &c : line) {
+            if (c != 'A' && c != 'T' && c != 'G' && c != 'C' && c != 'N') {
+                c = 'N';
+            }
+        }
+
+        sequence.append(line);
+
+        if (type == FASTQ) {
+            // For FASTQ, we only read the single sequence line and then stop
+            break;
+        }
     }
 
     file.close();
-    return true;
+    return !sequence.empty();
 }

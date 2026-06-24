@@ -166,16 +166,11 @@ int main(int argc, char *argv[]) {
     
     printf("Running %d simulations on sequence length range: (%d, %d); and block length range: (%d, %d)\n", samples * (90 / intensity_test), m_min, m_max, l_min, l_max);
 
-    dna_sequence s1;
     dna_sequence s;
-    std::ifstream f;
-    f.open(filename);
-    std::getline(f, s1);
-    for (int i = 0; i < 350; i++) {
-        std::getline(f, s1);
-        s.append(s1);
+    if (!read_sequence(filename, s)) {
+        std::cerr << "Failed to read the reference sequence from file " << filename << std::endl;
+        return 1;
     }
-    f.close();
     int len = s.size();
 
     int total_range = 0;
